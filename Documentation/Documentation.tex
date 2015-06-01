@@ -5,10 +5,58 @@
 \setlength{\parskip}{1.5em}
 
 \title{{\Huge AV 777 DVR Front Panel  } \\
-	 {\Large An Extremely Unofficial Hacker's Reference}}
+	 {\Large An (Extremely) Unofficial Hacker's Reference}}
 \author{{\large Logan Walker (GeekLogan)}}
 \date{{\normalsize Last Updated: \today }}
 \maketitle
+
+\section{Disclaimer}
+
+All information found in this project, and in this document in particular, was found using
+hours of testing, poking, and prodding and is provided with NO WARRANTY.
+
+\section{Motivation}
+
+This project was created to develop an interface driver for the front panel interface board
+used in the AV 777 DVR. This was primarily to allow its use in casemod projects and recycling
+projects where it could be used as both an input and output due to the large number of LEDs and
+buttons.
+
+\section{Pinout of Primary Connector}
+
+Below is the pinout of the connector (Labeled P1) used to interface with the board:
+
+\center
+\begin{tabular}{cr|lc}
+Function & Pin & Pin & Function\\ \hline
+
+Ground & 1 & 11 & Ground\\
+Latch Output 1 & 2 & 12 & 5V+\\
+Latch Output 2 & 3 & 13 & Input Clock\\
+Latch Output 3 & 4 & 14 & Input Data\\
+Latch Output 4 & 5 & 15 & Input Strobe\\
+Latch Output 5 & 6 & 16 & Output Enable 1\\
+Latch Output 6 & 7 & 17 & Output Enable 2\\
+Latch Output 7 & 8 & 18 & Output Enable 3\\
+Latch Output 8 & 9 & 19 & Output Enable 4\\
+HDD LED Pin & 10 & 20 & Ground
+\end{tabular}
+
+\begin{tabular}{l|l}
+Function & Description\\ \hline
+
+Ground & Goes to the 0V common line\\
+5V+ & Goes to the 5V common line\\
+
+Latch Output 1...8 & The digital latch outputs\\
+Output Enable 1...4 & Turns each latch on (LOW = enable)\\
+HDD LED Pin & Digital input to the HDD light\\
+
+Input Clock & Clocks the LED shift register\\
+Input Data & Passes in the digital data to the shift register\\
+Input Strobe & Strobes the shift register\\
+\end{tabular}
+\flushleft
 
 \section{License}
 
@@ -375,5 +423,7 @@ proprietary programs.  If your program is a subroutine library, you may
 consider it more useful to permit linking proprietary applications with the
 library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.
+
+
 
 \end{document}
