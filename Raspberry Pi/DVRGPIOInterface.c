@@ -31,6 +31,20 @@ gpio readall
 
 int OEOut[] = {7,0,2,3};
 int ButtonsIn[] = {12,13,14,11,10,6,5,4};
+int status[BUTTONPINCOUNT * OEPINCOUNT];
+
+void printStatus() {
+	int i;
+	for(i = 0; i < OEPINCOUNT * BUTTONPINCOUNT; i++) {
+		printf(" (%d) (", i);
+		if(status[i] == 1) {
+			printf("-)");
+		} else {
+			printf("+)");
+		}
+	}
+	printf("\n");
+}
 
 void clearAllOE() {
 	int i;
@@ -40,13 +54,40 @@ void clearAllOE() {
 	}
 }
 
+int mapkey(int oe, int qpin) {
+	return((BUTTONPINCOUNT * oe) + qpin);
+}
+
+void updateGPIO() {
+	int j,k;
+	for(j = 0; j < OEPINCOUNT; j++) {
+		clearAllOE();
+		digitalWrite(OEOut[j], LOW);
+		for(k = 0; k < BUTTONPINCOUNT; k++) {
+			int pin = ButtonsIn[k];
+			if(k == 0) {
+				delayMicroseconds(1);
+				//add a delay to prevent BUTTON-ZERO measuring bug
+			}
+			
+			int id = mapkey(j,k);
+			int new = digitalRead(pin);
+			
+			if(status[id] != new) {
+				status[id] = new;
+				//printf("%d\n",mapkey(j,k));
+				printStatus();
+			}
+		}
+	}
+}
+
 void setupGPIO() {
 	wiringPiSetup();
 
 	int i;
 	for(i = 0; i < OEPINCOUNT; i++) {
-		int pin = OEOut[i];
-		pinMode(pin, OUTPUT);
+		pinMode(OEOut[i], OUTPUT);
 	}
 
 	clearAllOE();
@@ -56,26 +97,16 @@ void setupGPIO() {
 		pinMode(pin, INPUT);
 		pullUpDnControl(pin, PUD_DOWN);
 	}
+
+	for(i = 0; i < BUTTONPINCOUNT * OEPINCOUNT; i++) {
+		status[i] = 1; 
+	}
 }
 
 int main(int argc, char ** args) {
-	wiringPiSetup();
+	setupGPIO();
 
-	int j,k;
 	while(1) {
-		for(j = 0; j < OEPINCOUNT; j++) {
-			clearAllOE();
-			digitalWrite(OEOut[j], LOW);
-			for(k = 0; k < BUTTONPINCOUNT; k++) {
-				int pin = ButtonsIn[k];
-				if(k == 0) {
-					delayMicroseconds(1);
-					//add a delay to prevent BUTTON-ZERO measuring bug
-				}
-				if(!digitalRead(pin)) {
-					printf("Button pressed! (OE:%d, BUTTON:%d)\n",j,k);
-				}
-			}
-		}
+		updateGPIO();
 	}
 }
