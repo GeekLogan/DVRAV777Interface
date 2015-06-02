@@ -1,82 +1,76 @@
-/*
-gpio readall
-
-gpio mode 7 output
-gpio mode 0 output
-gpio mode 2 output
-gpio mode 3 output
-
-gpio write 7 1
-gpio write 0 1
-gpio write 2 1
-gpio write 3 1
-
-gpio mode 12 input
-gpio mode 13 input
-gpio mode 14 input
-gpio mode 11 input
-gpio mode 10 input
-gpio mode 6 input
-gpio mode 5 input
-gpio mode 4 input
-
-gpio readall
-*/
-
 #include <stdio.h>
 #include <wiringPi.h>
 
 #define OEPINCOUNT 4
 #define BUTTONPINCOUNT 8
+#define LIGHTCOUNT 23
+
+#define CLOCKPIN 9
+#define DATAPIN 8
 
 int OEOut[] = {7,0,2,3};
 int ButtonsIn[] = {12,13,14,11,10,6,5,4};
 int status[BUTTONPINCOUNT * OEPINCOUNT];
+int lightStatus[LIGHTCOUNT];
 
-void printStatus() {
-	int i;
-	for(i = 0; i < OEPINCOUNT * BUTTONPINCOUNT; i++) {
-		printf(" (%d) (", i);
-		if(status[i] == 1) {
-			printf("-)");
-		} else {
-			printf("+)");
-		}
+void writeLights() {
+	digitalWrite(CLOCKPIN, LOW);
+	for(int i = LIGHTCOUNT; i >= 0; i--) {
+		digitalWrite(DATAPIN, lightStatus[i]);
+		digitalWrite(CLOCKPIN, HIGH);
+		digitalWrite(CLOCKPIN, LOW);
 	}
-	printf("\n");
+}
+
+void setLight(int pin, int in) {
+	if(pin < 0 || pin >= LIGHTCOUNT) return;
+	lightStatus[pin] = in;
+	writeLights();
+}
+
+int mapLight(int id) {
+	if(id >= 16) {
+		if(id <= 18) return(26 - id);
+		if(id <= 23) return(id - 8);
+		if(id <= 26) return(26 - id);
+		if(id <= 31) return(id - 24);
+	}
+	return -1;
 }
 
 void clearAllOE() {
-	int i;
-	for(i = 0; i < OEPINCOUNT; i++) {
-		int pin = OEOut[i];
-		digitalWrite(pin, HIGH);
-	}
+	for(int i = 0; i < OEPINCOUNT; i++) 
+		digitalWrite(OEOut[i], HIGH);
 }
 
 int mapkey(int oe, int qpin) {
-	return((BUTTONPINCOUNT * oe) + qpin);
+	return (BUTTONPINCOUNT * oe) + qpin;
 }
 
 void updateGPIO() {
-	int j,k;
-	for(j = 0; j < OEPINCOUNT; j++) {
+	for(int j = 0; j < OEPINCOUNT; j++) {
 		clearAllOE();
 		digitalWrite(OEOut[j], LOW);
-		for(k = 0; k < BUTTONPINCOUNT; k++) {
-			int pin = ButtonsIn[k];
-			if(k == 0) {
-				delayMicroseconds(1);
-				//add a delay to prevent BUTTON-ZERO measuring bug
-			}
-			
+		for(int k = 0; k < BUTTONPINCOUNT; k++) {
+			if(k == 0) delayMicroseconds(1);
 			int id = mapkey(j,k);
-			int new = digitalRead(pin);
+			int new = digitalRead(ButtonsIn[k]);
 			
 			if(status[id] != new) {
 				status[id] = new;
-				//printf("%d\n",mapkey(j,k));
-				printStatus();
+				int lightId = mapLight(id);
+				if(new) {
+					printf("Button Up!  ");
+					setLight(lightId, LOW);
+				} else {
+					printf("Button Down!");
+					setLight(lightId, HIGH);
+				}
+				printf(" (%d) [%d] <", id, lightId);
+				for(int i = 0; i < LIGHTCOUNT; i++) {
+					printf("%d", lightStatus[i]);
+				}
+				printf("> \n");
 			}
 		}
 	}
@@ -84,29 +78,27 @@ void updateGPIO() {
 
 void setupGPIO() {
 	wiringPiSetup();
-
-	int i;
-	for(i = 0; i < OEPINCOUNT; i++) {
+	for(int i = 0; i < OEPINCOUNT; i++) {
 		pinMode(OEOut[i], OUTPUT);
 	}
-
 	clearAllOE();
-
-	for(i = 0; i < BUTTONPINCOUNT; i++) {
+	for(int i = 0; i < BUTTONPINCOUNT; i++) {
 		int pin = ButtonsIn[i];
 		pinMode(pin, INPUT);
 		pullUpDnControl(pin, PUD_DOWN);
 	}
-
-	for(i = 0; i < BUTTONPINCOUNT * OEPINCOUNT; i++) {
-		status[i] = 1; 
+	pinMode(DATAPIN, OUTPUT);
+	pinMode(CLOCKPIN, OUTPUT);
+	for(int i = 0; i < BUTTONPINCOUNT * OEPINCOUNT; i++) {
+		status[i] = HIGH;
 	}
+	for(int i = 0; i < LIGHTCOUNT; i++) {
+		lightStatus[i] = LOW;
+	}
+	writeLights();
 }
 
 int main(int argc, char ** args) {
 	setupGPIO();
-
-	while(1) {
-		updateGPIO();
-	}
+	while(1) updateGPIO();
 }
