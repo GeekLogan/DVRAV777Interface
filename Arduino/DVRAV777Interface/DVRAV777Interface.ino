@@ -1,86 +1,100 @@
 #define LEDPIN 13
-#define STROBE 12
-#define DATA 11
-#define CLOCK 10
+#define DATA 12
+#define CLOCK 11
+#define STROBE A0
 #define BITWIDTH 23
+#define OECOUNT 4
+#define BUTTONCOUNT 8
 
+int registerData[BITWIDTH];
+int buttonStatus[BUTTONCOUNT * OECOUNT];
 
-boolean registerData[23];
+int oepins[] = {A5, A4, A3, A2};
+int buttonpins[] = {3, 4, 5, 6, 7, 8, 9, 10};
 
-boolean regOne[8];
-boolean regTwo[8];
-boolean regThree[8];
-boolean regFour[8];
-
-int lastCount = 0;
-
-// the setup function runs once when you press reset or power the board
 void setup() {
- pinMode(LEDPIN, OUTPUT); //LED Pin
- pinMode(STROBE, OUTPUT);
- pinMode(DATA, OUTPUT);  
- pinMode(CLOCK, OUTPUT);
- 
- digitalWrite(STROBE, HIGH);
- digitalWrite(DATA, LOW);
- digitalWrite(LEDPIN, LOW);
- 
- for(int i = 0; i < BITWIDTH; i = i + 1) {
-   digitalWrite(CLOCK, HIGH);
-   digitalWrite(CLOCK, LOW);
- }
- 
- Serial.begin(9600);
-
-}
-
-void sendToRegister() { 
- for(byte i = 0; i < BITWIDTH; i = i + 1) {
-  if(registerData[i]) {
-    digitalWrite(DATA, HIGH);
-  } else {
-    digitalWrite(DATA, LOW);
+  pinMode(LEDPIN, OUTPUT); //LED Pin
+  pinMode(DATA, OUTPUT);  
+  pinMode(CLOCK, OUTPUT);
+  pinMode(STROBE, OUTPUT);
+  
+  for(int i = 0; i < OECOUNT; i++) {
+    pinMode(oepins[i], OUTPUT);
   }
   
-  delay(2);
-  digitalWrite(CLOCK, HIGH);
-  delay(2);
-  digitalWrite(CLOCK, LOW);
-  delay(2);
- } 
-}
-
-void printRegisters() { 
- Serial.print("Data: ");
- for(int i = 0; i < BITWIDTH; i = i + 1) {
-   if(registerData[i]) {
-     Serial.print(1);
-   } else {
-     Serial.print(0);
-   }
- } 
- Serial.println();
-}
-
-// the loop function runs over and over again forever
-void loop() {
-  int count = Serial.available();
-
-  if(count != lastCount) { 
-    Serial.print("Buffer Count: ");
-    Serial.println(count);
-    lastCount = count;
+  for(int i = 0; i < BUTTONCOUNT; i++) {
+    pinMode(buttonpins[i], INPUT);
   }
- 
-  if (count >= BITWIDTH) {
+  
+  for(int i = 0; i < BUTTONCOUNT * OECOUNT; i++) {
+    buttonStatus[i] = HIGH;
+  }
+  
+  digitalWrite(LEDPIN, HIGH);
+  digitalWrite(CLOCK, LOW);
+  digitalWrite(STROBE, HIGH);
+  
+  clearAllOE();
+  updateButtons();
+  sendToRegister();
+  
+  Serial.begin(9600);
+  delay(500);
+}
+
+int mapButton(int oe, int button) {
+  return ((oe * BUTTONCOUNT) + button);
+}
+
+void sendToRegister() {
+  for(byte i = 0; i < BITWIDTH; i = i + 1) {
+    digitalWrite(DATA, registerData[i]);
+    digitalWrite(CLOCK, HIGH);
+    digitalWrite(CLOCK, LOW);
+  } 
+}
+
+void checkCache() {
+  if (Serial.available() >= BITWIDTH) {
     for(int i = 0; i < BITWIDTH; i = i + 1) {
       byte in = Serial.read();
-      Serial.print("Byte Read: ");
-      Serial.println(in);
       registerData[i] = (in == 49);
     }
-    printRegisters();
     sendToRegister();
   }
- 
 }
+
+void clearAllOE() {
+  for(int i = 0; i < OECOUNT; i++) {
+    digitalWrite(oepins[i], HIGH);
+  }
+}
+
+void updateButtons() {
+  for(int k = 0; k < OECOUNT; k++) {
+    clearAllOE();
+    digitalWrite(oepins[k], LOW);
+    delay(25);
+    for(int j = 0; j < BUTTONCOUNT; j++) {
+      int newData = digitalRead(buttonpins[j]);
+      int index = mapButton(k, j);
+      
+      if(buttonStatus[index] != newData) {
+        buttonStatus[index] = newData;
+        if(newData) {
+          Serial.print("Button Up   [");
+        } else {
+          Serial.print("Button Down [");
+        }
+        Serial.print(index);
+        Serial.println("]");
+      }
+    }
+  }
+}
+
+void loop() { 
+  checkCache();
+  updateButtons();
+}
+
